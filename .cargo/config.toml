@@ -1,0 +1,4 @@
+[env]
+FFMPEG_DIR = "C:/VCPKG/vcpkg/installed/x64-mingw-dynamic"
+LIBCLANG_PATH = "C:/Program Files/LLVM/bin"
+BINDGEN_EXTRA_CLANG_ARGS = "--target=x86_64-w64-mingw32 -isystem C:/msys64/mingw64/include -isystem C:/Users/chase_qlo04cr/sideProjects/fast_render/fast_render/.cargo/stubs -isystem \"C:/Program Files/LLVM/lib/clang/23/include\" -D__X86INTRIN_H"
