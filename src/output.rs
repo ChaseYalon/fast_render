@@ -19,9 +19,8 @@ impl Output {
         let fps = 30;
 
         let first = self.input_node.next_frame().expect("no frames");
-        let h = first.len() as u32;
-        let w = first[0].len() as u32;
-        assert!(w % 2 == 0 && h % 2 == 0, "yuv420p needs even dimensions");
+        let (w, h) = (first.width, first.height);
+        assert!(w % 2 == 0, "yuv422p needs even width");
 
         let mut octx = format::output(&self.output_file_name).unwrap();
         let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
@@ -40,6 +39,7 @@ impl Output {
         let time_base = Rational(1, fps);
         enc.set_width(w);
         enc.set_height(h);
+        // Frames are 4:2:2 internally, but most players only decode 4:2:0 H.264
         enc.set_format(Pixel::YUV420P);
         enc.set_time_base(time_base);
         enc.set_frame_rate(Some(Rational(fps, 1)));
@@ -58,28 +58,32 @@ impl Output {
         // The muxer may change the stream time base during write_header, so read it afterwards
         let stream_tb = octx.stream(0).unwrap().time_base();
 
-        let mut scaler =
-            Scaler::get(Pixel::RGBA, w, h, Pixel::YUV420P, w, h, Flags::BILINEAR).unwrap();
+        let cw = w as usize / 2;
+        let mut to_420 =
+            Scaler::get(Pixel::YUV422P, w, h, Pixel::YUV420P, w, h, Flags::BILINEAR).unwrap();
 
         let mut next = Some(first);
         let mut i = 0;
         while let Some(frame) = next {
-            // Fill an RGBA frame, respecting row stride padding
-            let mut src = Video::new(Pixel::RGBA, w, h);
-            let stride = src.stride(0);
-            let dst = src.data_mut(0);
-            for (y, row) in frame.iter().enumerate() {
-                let line = &mut dst[y * stride..y * stride + w as usize * 4];
-                for (x, px) in row.iter().enumerate() {
-                    line[x * 4..x * 4 + 4].copy_from_slice(px);
+            // Copy each plane into an ffmpeg frame, respecting row stride padding
+            let mut yuv = Video::new(Pixel::YUV422P, w, h);
+            for (plane, src, row_len) in [
+                (0, &frame.y, w as usize),
+                (1, &frame.u, cw),
+                (2, &frame.v, cw),
+            ] {
+                let stride = yuv.stride(plane);
+                let dst = yuv.data_mut(plane);
+                for y in 0..h as usize {
+                    dst[y * stride..y * stride + row_len]
+                        .copy_from_slice(&src[y * row_len..(y + 1) * row_len]);
                 }
             }
+            let mut yuv420 = Video::empty();
+            to_420.run(&yuv, &mut yuv420).unwrap();
+            yuv420.set_pts(Some(i as i64));
 
-            let mut yuv = Video::empty();
-            scaler.run(&src, &mut yuv).unwrap();
-            yuv.set_pts(Some(i as i64));
-
-            enc.send_frame(&yuv).unwrap();
+            enc.send_frame(&yuv420).unwrap();
             self.drain(&mut enc, &mut octx, time_base, stream_tb);
             i += 1;
             next = self.input_node.next_frame();

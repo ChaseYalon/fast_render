@@ -37,7 +37,7 @@ impl Load {
         let (w, h) = (decoder.width(), decoder.height());
 
         let scaler =
-            Scaler::get(decoder.format(), w, h, Pixel::RGBA, w, h, Flags::BILINEAR).unwrap();
+            Scaler::get(decoder.format(), w, h, Pixel::YUV422P, w, h, Flags::BILINEAR).unwrap();
 
         return Decoding { ictx, decoder, scaler, idx, w, h, eof: false };
     }
@@ -59,22 +59,27 @@ impl BlankNode for Load {
         let mut packet = Packet::empty();
         loop {
             if s.decoder.receive_frame(&mut decoded).is_ok() {
-                let mut rgba = Video::empty();
-                s.scaler.run(&decoded, &mut rgba).unwrap();
+                let mut yuv = Video::empty();
+                s.scaler.run(&decoded, &mut yuv).unwrap();
 
-                // rows may be padded, so index by stride rather than w * 4
-                let stride = rgba.stride(0);
-                let data = rgba.data(0);
-                return Some(
-                    (0..s.h as usize)
-                        .map(|y| {
-                            let row = &data[y * stride..y * stride + s.w as usize * 4];
-                            row.chunks_exact(4)
-                                .map(|p| [p[0], p[1], p[2], p[3]])
-                                .collect()
-                        })
-                        .collect(),
-                );
+                // rows may be padded, so copy row by row using each plane's stride
+                let cw = (s.w as usize + 1) / 2;
+                let copy_plane = |plane: usize, row_len: usize| -> Vec<u8> {
+                    let stride = yuv.stride(plane);
+                    let data = yuv.data(plane);
+                    let mut out = Vec::with_capacity(row_len * s.h as usize);
+                    for y in 0..s.h as usize {
+                        out.extend_from_slice(&data[y * stride..y * stride + row_len]);
+                    }
+                    out
+                };
+                return Some(Frame {
+                    width: s.w,
+                    height: s.h,
+                    y: copy_plane(0, s.w as usize),
+                    u: copy_plane(1, cw),
+                    v: copy_plane(2, cw),
+                });
             }
             if s.eof {
                 return None;

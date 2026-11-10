@@ -1,0 +1,9 @@
+If:
+  PathMatch: .*\.cu
+CompileFlags:
+  Add:
+    - -xcuda
+    - --cuda-path=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v13.2
+    - --cuda-gpu-arch=sm_80
+    - -nocudalib
+    - -Wno-unknown-cuda-version
