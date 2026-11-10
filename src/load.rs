@@ -1,6 +1,6 @@
 use crate::node::{BlankNode, Frame, HashOutput};
 use ffmpeg::{
-    Packet,
+    Packet, Rational,
     format::{Pixel, input},
     media::Type,
     software::scaling::{context::Context as Scaler, flag::Flags},
@@ -17,6 +17,7 @@ struct Decoding {
     idx: usize,
     w: u32,
     h: u32,
+    fps: Rational,
     eof: bool,
 }
 pub struct Load {
@@ -31,15 +32,38 @@ impl Load {
         let mut ictx = input(&self.file_path).unwrap();
         let stream = ictx.streams().best(Type::Video).expect("no video stream");
         let idx = stream.index();
+        let fps = stream.avg_frame_rate();
+        assert!(
+            fps.numerator() > 0 && fps.denominator() > 0,
+            "could not read the frame rate of {}",
+            self.file_path
+        );
 
         let ctx = ffmpeg::codec::context::Context::from_parameters(stream.parameters()).unwrap();
         let mut decoder = ctx.decoder().video().unwrap();
         let (w, h) = (decoder.width(), decoder.height());
 
-        let scaler =
-            Scaler::get(decoder.format(), w, h, Pixel::YUV422P, w, h, Flags::BILINEAR).unwrap();
+        let scaler = Scaler::get(
+            decoder.format(),
+            w,
+            h,
+            Pixel::YUV422P,
+            w,
+            h,
+            Flags::BILINEAR,
+        )
+        .unwrap();
 
-        return Decoding { ictx, decoder, scaler, idx, w, h, eof: false };
+        return Decoding {
+            ictx,
+            decoder,
+            scaler,
+            idx,
+            w,
+            h,
+            fps,
+            eof: false,
+        };
     }
     pub fn new(path: &str) -> Load {
         return Load {
@@ -50,6 +74,12 @@ impl Load {
     }
 }
 impl BlankNode for Load {
+    fn fps(&mut self) -> Rational {
+        if self.state.is_none() {
+            self.state = Some(self.open());
+        }
+        return self.state.as_ref().unwrap().fps;
+    }
     fn next_frame(&mut self) -> Option<Frame> {
         if self.state.is_none() {
             self.state = Some(self.open());

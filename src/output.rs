@@ -16,7 +16,7 @@ pub struct Output {
 impl Output {
     pub fn run(&mut self) {
         ffmpeg::init().unwrap();
-        let fps = 30;
+        let fps = self.input_node.fps();
 
         let first = self.input_node.next_frame().expect("no frames");
         let (w, h) = (first.width, first.height);
@@ -36,13 +36,13 @@ impl Output {
             .video()
             .unwrap();
 
-        let time_base = Rational(1, fps);
+        let time_base = fps.invert();
         enc.set_width(w);
         enc.set_height(h);
         // Frames are 4:2:2 internally, but most players only decode 4:2:0 H.264
         enc.set_format(Pixel::YUV420P);
         enc.set_time_base(time_base);
-        enc.set_frame_rate(Some(Rational(fps, 1)));
+        enc.set_frame_rate(Some(fps));
         if global_header {
             enc.set_flags(codec::Flags::GLOBAL_HEADER);
         }
@@ -117,6 +117,9 @@ impl Output {
     }
 }
 impl BlankNode for Output {
+    fn fps(&mut self) -> Rational {
+        return self.input_node.fps();
+    }
     fn next_frame(&mut self) -> Option<Frame> {
         return None;
     }
