@@ -1,4 +1,7 @@
-use crate::{color_change::ColorChange, concat::Concat, load::Load, output::Output, trim::Trim};
+use crate::{
+    color_change::ColorChange, concat::Concat, load::Load, output::Output, transform::Transform,
+    trim::Trim,
+};
 use ffmpeg_next::Rational;
 pub type HashOutput = u64;
 /// Planar YUV 4:2:2, tightly packed (no stride padding).
@@ -25,6 +28,7 @@ pub enum Node {
     Concat(Concat),
     ColorChange(ColorChange),
     Trim(Trim),
+    Transform(Transform),
 }
 
 impl BlankNode for Node {
@@ -35,6 +39,7 @@ impl BlankNode for Node {
             Self::Concat(c) => c.next_frame(),
             Self::ColorChange(d) => d.next_frame(),
             Self::Trim(t) => t.next_frame(),
+            Self::Transform(t) => t.next_frame(),
         };
     }
     fn reset(&mut self) {
@@ -44,6 +49,7 @@ impl BlankNode for Node {
             Self::Concat(c) => c.reset(),
             Self::ColorChange(d) => d.reset(),
             Self::Trim(t) => t.reset(),
+            Self::Transform(t) => t.reset(),
         };
     }
     fn node_hash(&mut self) {
@@ -53,6 +59,7 @@ impl BlankNode for Node {
             Self::Concat(c) => c.node_hash(),
             Self::ColorChange(d) => d.node_hash(),
             Self::Trim(t) => t.node_hash(),
+            Self::Transform(t) => t.node_hash(),
             _ => todo!(),
         };
     }
@@ -63,6 +70,7 @@ impl BlankNode for Node {
             Self::Concat(c) => c.get_hash(),
             Self::ColorChange(d) => d.get_hash(),
             Self::Trim(t) => t.get_hash(),
+            Self::Transform(t) => t.get_hash(),
             _ => todo!(),
         };
     }
@@ -73,6 +81,7 @@ impl BlankNode for Node {
             Self::Concat(c) => c.fps(),
             Self::ColorChange(d) => d.fps(),
             Self::Trim(t) => t.fps(),
+            Self::Transform(t) => t.fps(),
         };
     }
 }
