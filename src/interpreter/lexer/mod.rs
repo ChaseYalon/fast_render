@@ -89,6 +89,13 @@ impl Lexer {
                 chars.next();
                 continue;
             }
+            if c == '#' {
+                // a comment runs to the end of the line; the newline itself is left for the line count
+                while chars.peek().is_some_and(|&c| c != '\n') {
+                    chars.next();
+                }
+                continue;
+            }
             if c.is_ascii_digit() {
                 toks.push(Self::number(&mut chars, line));
                 continue;

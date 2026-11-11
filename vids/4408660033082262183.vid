@@ -1,0 +1,15 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid2.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+cl2 = COLOR_CHANGE(input=f1, strength=0.10);
+l3 = LOAD(file="media/vid2.mp4");
+f4 = FPS_CHANGE(input=l3, new_fps=PROJECT.fps);
+cl5 = COLOR_CHANGE(input=f4, strength=0.49);
+tn6 = TRANSITION(a=cl2, b=cl5, kind=DIP_TO_BLACK, seconds=2);
+cl7 = COLOR_CHANGE(input=tn6, strength=-0.69);
+cl8 = COLOR_CHANGE(input=cl7, strength=0.28);
+cl9 = COLOR_CHANGE(input=cl8, strength=-0.42);
+cl10 = COLOR_CHANGE(input=cl9, strength=0.13);
+
+OUTPUT(file="4408660033082262183.mp4", input=cl10);

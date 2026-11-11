@@ -1,0 +1,38 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid5.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+t2 = TRIM(input=f1, start=7, end=9);
+l3 = LOAD(file="media/vid6.mp4");
+f4 = FPS_CHANGE(input=l3, new_fps=PROJECT.fps);
+l5 = LOAD(file="media/vid4.mp4");
+f6 = FPS_CHANGE(input=l5, new_fps=PROJECT.fps);
+p7 = PANCAKE(bottom=f4, top=f6);
+cc8 = CONCAT(input1=t2, input2=p7);
+l9 = LOAD(file="media/vid2.mp4");
+f10 = FPS_CHANGE(input=l9, new_fps=PROJECT.fps);
+sat11 = SATURATION_CHANGE(input=f10, factor=1.71);
+l12 = LOAD(file="media/vid6.mp4");
+f13 = FPS_CHANGE(input=l12, new_fps=PROJECT.fps);
+l14 = LOAD(file="media/vid6.mp4");
+f15 = FPS_CHANGE(input=l14, new_fps=PROJECT.fps);
+tn16 = TRANSITION(a=f13, b=f15, kind=CROSSFADE, seconds=1);
+tn17 = TRANSITION(a=sat11, b=tn16, kind=CROSSFADE, seconds=2);
+l18 = LOAD(file="media/vid4.mp4");
+f19 = FPS_CHANGE(input=l18, new_fps=PROJECT.fps);
+c20 = CROP(input=f19, left_x=934, left_y=593, right_x=1437, right_y=985);
+l21 = LOAD(file="media/vid6.mp4");
+f22 = FPS_CHANGE(input=l21, new_fps=PROJECT.fps);
+sat23 = SATURATION_CHANGE(input=f22, factor=2.48);
+p24 = PANCAKE(bottom=c20, top=sat23);
+cc25 = CONCAT(input1=cc8, input2=tn17, input3=p24);
+l26 = LOAD(file="media/vid5.mp4");
+f27 = FPS_CHANGE(input=l26, new_fps=PROJECT.fps);
+cl28 = COLOR_CHANGE(input=f27, strength=-0.38);
+b29 = BLUR(input=cl28, sigma=5.68);
+tr30 = TRANSFORM(input=b29, trans_x=-399, trans_y=-414, rot_x=1026, rot_y=965, deg_of_rot=-143.54, scale_x=1852, scale_y=1018, scale_factor=2.27);
+p31 = PANCAKE(bottom=cc25, top=tr30);
+tr32 = TRANSFORM(input=p31, trans_x=154, trans_y=490, rot_x=801, rot_y=178, deg_of_rot=20.92, scale_x=1645, scale_y=927, scale_factor=2.64);
+cl33 = COLOR_CHANGE(input=tr32, strength=0.95);
+
+OUTPUT(file="15507645537448219986.mp4", input=cl33);

@@ -1,0 +1,19 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid3.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+s2 = SPLIT(input=f1, at=9);
+cl3 = COLOR_CHANGE(input=s2.first, strength=-0.24);
+sat4 = SATURATION_CHANGE(input=cl3, factor=2.53);
+sat5 = SATURATION_CHANGE(input=sat4, factor=2.26);
+b6 = BLUR(input=sat5, sigma=1.47);
+l7 = LOAD(file="media/vid4.mp4");
+f8 = FPS_CHANGE(input=l7, new_fps=PROJECT.fps);
+sat9 = SATURATION_CHANGE(input=f8, factor=1.00);
+cl10 = COLOR_CHANGE(input=sat9, strength=-0.36);
+b11 = BLUR(input=cl10, sigma=6.89);
+tr12 = TRANSFORM(input=b11, trans_x=-118, trans_y=64, rot_x=1551, rot_y=467, deg_of_rot=-178.28, scale_x=1418, scale_y=968, scale_factor=2.70);
+s13 = SPLIT(input=tr12, at=9);
+p14 = PANCAKE(bottom=b6, top=s13.second);
+
+OUTPUT(file="18149285719566097778.mp4", input=p14);
