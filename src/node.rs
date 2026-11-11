@@ -1,5 +1,5 @@
 use crate::{
-    blur::Blur, color_change::ColorChange, concat::Concat, crop::Crop, load::Load, output::Output, pancake::Pancake, saturation_change::SaturationChange, transform::Transform, trim::Trim,
+    blur::Blur, color_change::ColorChange, concat::Concat, crop::Crop, fps_change::FpsChange, load::Load, output::Output, pancake::Pancake, saturation_change::SaturationChange, split::Split, transform::Transform, transition::Transition, trim::Trim,
 };
 use ffmpeg_next::Rational;
 pub type HashOutput = u64;
@@ -35,6 +35,9 @@ pub enum Node {
     Pancake(Pancake),
     Blur(Blur),
     SaturationChange(SaturationChange),
+    Split(Split),
+    FpsChange(FpsChange),
+    Transition(Transition),
 }
 
 impl BlankNode for Node {
@@ -50,6 +53,9 @@ impl BlankNode for Node {
             Self::Pancake(p) => p.next_frame(),
             Self::Blur(b) => b.next_frame(),
             Self::SaturationChange(s) => s.next_frame(),
+            Self::Split(s) => s.next_frame(),
+            Self::FpsChange(f) => f.next_frame(),
+            Self::Transition(t) => t.next_frame(),
         };
     }
     fn reset(&mut self) {
@@ -64,6 +70,9 @@ impl BlankNode for Node {
             Self::Pancake(p) => p.reset(),
             Self::Blur(b) => b.reset(),
             Self::SaturationChange(s) => s.reset(),
+            Self::Split(s) => s.reset(),
+            Self::FpsChange(f) => f.reset(),
+            Self::Transition(t) => t.reset(),
         };
     }
     fn node_hash(&mut self) {
@@ -78,6 +87,9 @@ impl BlankNode for Node {
             Self::Pancake(p) => p.node_hash(),
             Self::Blur(b) => b.node_hash(),
             Self::SaturationChange(s) => s.node_hash(),
+            Self::Split(s) => s.node_hash(),
+            Self::FpsChange(f) => f.node_hash(),
+            Self::Transition(t) => t.node_hash(),
         };
     }
     fn get_hash(&self) -> HashOutput {
@@ -92,6 +104,9 @@ impl BlankNode for Node {
             Self::Pancake(p) => p.get_hash(),
             Self::Blur(b) => b.get_hash(),
             Self::SaturationChange(s) => s.get_hash(),
+            Self::Split(s) => s.get_hash(),
+            Self::FpsChange(f) => f.get_hash(),
+            Self::Transition(t) => t.get_hash(),
         };
     }
     fn fps(&mut self) -> Rational {
@@ -106,6 +121,9 @@ impl BlankNode for Node {
             Self::Pancake(p) => p.fps(),
             Self::Blur(b) => b.fps(),
             Self::SaturationChange(s) => s.fps(),
+            Self::Split(s) => s.fps(),
+            Self::FpsChange(f) => f.fps(),
+            Self::Transition(t) => t.fps(),
         };
     }
 }
