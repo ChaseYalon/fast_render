@@ -1,0 +1,25 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid3.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+c2 = CROP(input=f1, left_x=39, left_y=414, right_x=485, right_y=913);
+l3 = LOAD(file="media/vid6.mp4");
+f4 = FPS_CHANGE(input=l3, new_fps=PROJECT.fps);
+c5 = CROP(input=f4, left_x=277, left_y=216, right_x=747, right_y=774);
+l6 = LOAD(file="media/vid4.mp4");
+f7 = FPS_CHANGE(input=l6, new_fps=PROJECT.fps);
+l8 = LOAD(file="media/vid3.mp4");
+f9 = FPS_CHANGE(input=l8, new_fps=PROJECT.fps);
+l10 = LOAD(file="media/vid6.mp4");
+f11 = FPS_CHANGE(input=l10, new_fps=PROJECT.fps);
+cc12 = CONCAT(input1=f7, input2=f9, input3=f11);
+l13 = LOAD(file="media/vid3.mp4");
+f14 = FPS_CHANGE(input=l13, new_fps=PROJECT.fps);
+t15 = TRIM(input=f14, start=12, end=14);
+cc16 = CONCAT(input1=c2, input2=c5, input3=cc12, input4=t15);
+cl17 = COLOR_CHANGE(input=cc16, strength=-0.91);
+b18 = BLUR(input=cl17, sigma=6.72);
+sat19 = SATURATION_CHANGE(input=b18, factor=0.98);
+c20 = CROP(input=sat19, left_x=1841, left_y=183, right_x=1900, right_y=221);
+
+OUTPUT(file="5789839073649661849.mp4", input=c20);

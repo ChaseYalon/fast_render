@@ -1,0 +1,12 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid1.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+cl2 = COLOR_CHANGE(input=f1, strength=0.73);
+sat3 = SATURATION_CHANGE(input=cl2, factor=0.64);
+c4 = CROP(input=sat3, left_x=1428, left_y=1068, right_x=1641, right_y=1078);
+c5 = CROP(input=c4, left_x=848, left_y=39, right_x=883, right_y=983);
+cl6 = COLOR_CHANGE(input=c5, strength=0.23);
+t7 = TRIM(input=cl6, start=20, end=47);
+
+OUTPUT(file="11384990317332972591.mp4", input=t7);

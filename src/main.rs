@@ -9,7 +9,7 @@ use cudarc::nvrtc;
 use std::sync::Arc;
 use crate::fuzzer::Fuzzer;
 use crate::interpreter::GraphBuilder;
-use crate::nodes::Node;
+use crate::nodes::{BlankNode, Node};
 
 #[derive(Clone)]
 pub struct Kernels {
@@ -91,7 +91,12 @@ fn main() {
     if args[1] == "--time" {
         let mut cold_times: Vec<u128> = vec![];
         let mut hot_times: Vec<u128> = vec![];
-        for f in fs::read_dir("./vids/").unwrap() {
+        let path = if args.len() > 2 && args[2] == "--abr" {
+            "./vids/abridged/"
+        } else {
+            "./vids/full/"
+        };
+        for f in fs::read_dir(path).unwrap() {
             if let Ok(file) = f {
                 println!("{:?}", file.path());
                 let text = fs::read_to_string(file.path().clone()).unwrap();
@@ -108,6 +113,7 @@ fn main() {
                         .expect("System time is before the Unix epoch")
                         .as_nanos();
                     cold_times.push(end - start);
+                    o.reset(); // the first run consumed every frame; rewind the graph
 
                     let start = SystemTime::now()
                         .duration_since(UNIX_EPOCH)

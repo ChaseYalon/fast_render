@@ -1,0 +1,24 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid3.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+t2 = TRIM(input=f1, start=16, end=19);
+c3 = CROP(input=t2, left_x=1889, left_y=474, right_x=1897, right_y=746);
+cl4 = COLOR_CHANGE(input=c3, strength=-0.21);
+l5 = LOAD(file="media/vid5.mp4");
+f6 = FPS_CHANGE(input=l5, new_fps=PROJECT.fps);
+b7 = BLUR(input=f6, sigma=1.38);
+cl8 = COLOR_CHANGE(input=b7, strength=0.35);
+l9 = LOAD(file="media/vid2.mp4");
+f10 = FPS_CHANGE(input=l9, new_fps=PROJECT.fps);
+t11 = TRIM(input=f10, start=3, end=4);
+l12 = LOAD(file="media/vid3.mp4");
+f13 = FPS_CHANGE(input=l12, new_fps=PROJECT.fps);
+c14 = CROP(input=f13, left_x=1630, left_y=979, right_x=1649, right_y=1024);
+cc15 = CONCAT(input1=t11, input2=c14);
+tn16 = TRANSITION(a=cl8, b=cc15, kind=CROSSFADE, seconds=4);
+tn17 = TRANSITION(a=cl4, b=tn16, kind=CROSSFADE, seconds=2);
+tr18 = TRANSFORM(input=tn17, trans_x=301, trans_y=-55, rot_x=333, rot_y=1029, deg_of_rot=156.10, scale_x=1709, scale_y=826, scale_factor=2.03);
+tr19 = TRANSFORM(input=tr18, trans_x=-277, trans_y=19, rot_x=1421, rot_y=217, deg_of_rot=93.57, scale_x=897, scale_y=832, scale_factor=2.31);
+
+OUTPUT(file="9765179406051350707.mp4", input=tr19);

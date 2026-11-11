@@ -1,0 +1,35 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid1.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+b2 = BLUR(input=f1, sigma=8.36);
+c3 = CROP(input=b2, left_x=1902, left_y=57, right_x=1905, right_y=149);
+cl4 = COLOR_CHANGE(input=c3, strength=-0.82);
+s5 = SPLIT(input=cl4, at=2);
+l6 = LOAD(file="media/vid6.mp4");
+f7 = FPS_CHANGE(input=l6, new_fps=PROJECT.fps);
+l8 = LOAD(file="media/vid4.mp4");
+f9 = FPS_CHANGE(input=l8, new_fps=PROJECT.fps);
+l10 = LOAD(file="media/vid3.mp4");
+f11 = FPS_CHANGE(input=l10, new_fps=PROJECT.fps);
+cc12 = CONCAT(input1=f7, input2=f9, input3=f11);
+t13 = TRIM(input=cc12, start=0, end=36);
+l14 = LOAD(file="media/vid5.mp4");
+f15 = FPS_CHANGE(input=l14, new_fps=PROJECT.fps);
+c16 = CROP(input=f15, left_x=815, left_y=220, right_x=836, right_y=315);
+cl17 = COLOR_CHANGE(input=c16, strength=-0.40);
+l18 = LOAD(file="media/vid6.mp4");
+f19 = FPS_CHANGE(input=l18, new_fps=PROJECT.fps);
+cl20 = COLOR_CHANGE(input=f19, strength=0.71);
+l21 = LOAD(file="media/vid1.mp4");
+f22 = FPS_CHANGE(input=l21, new_fps=PROJECT.fps);
+l23 = LOAD(file="media/vid6.mp4");
+f24 = FPS_CHANGE(input=l23, new_fps=PROJECT.fps);
+p25 = PANCAKE(bottom=f22, top=f24);
+p26 = PANCAKE(bottom=cl20, top=p25);
+cc27 = CONCAT(input1=t13, input2=cl17, input3=p26);
+cl28 = COLOR_CHANGE(input=cc27, strength=-0.43);
+p29 = PANCAKE(bottom=s5.second, top=cl28);
+cl30 = COLOR_CHANGE(input=p29, strength=0.62);
+
+OUTPUT(file="16549658765691946288.mp4", input=cl30);

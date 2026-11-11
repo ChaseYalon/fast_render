@@ -1,0 +1,20 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid3.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+l2 = LOAD(file="media/vid5.mp4");
+f3 = FPS_CHANGE(input=l2, new_fps=PROJECT.fps);
+l4 = LOAD(file="media/vid2.mp4");
+f5 = FPS_CHANGE(input=l4, new_fps=PROJECT.fps);
+cc6 = CONCAT(input1=f1, input2=f3, input3=f5);
+sat7 = SATURATION_CHANGE(input=cc6, factor=0.79);
+l8 = LOAD(file="media/vid3.mp4");
+f9 = FPS_CHANGE(input=l8, new_fps=PROJECT.fps);
+c10 = CROP(input=f9, left_x=822, left_y=379, right_x=1271, right_y=395);
+s11 = SPLIT(input=c10, at=8);
+tn12 = TRANSITION(a=sat7, b=s11.first, kind=CROSSFADE, seconds=4);
+sat13 = SATURATION_CHANGE(input=tn12, factor=1.38);
+t14 = TRIM(input=sat13, start=5, end=12);
+cl15 = COLOR_CHANGE(input=t14, strength=-0.66);
+
+OUTPUT(file="4249990431687775992.mp4", input=cl15);

@@ -1,0 +1,18 @@
+PROJECT(width=1920, height=1080, fps=30);
+
+l0 = LOAD(file="media/vid1.mp4");
+f1 = FPS_CHANGE(input=l0, new_fps=PROJECT.fps);
+l2 = LOAD(file="media/vid1.mp4");
+f3 = FPS_CHANGE(input=l2, new_fps=PROJECT.fps);
+l4 = LOAD(file="media/vid2.mp4");
+f5 = FPS_CHANGE(input=l4, new_fps=PROJECT.fps);
+l6 = LOAD(file="media/vid3.mp4");
+f7 = FPS_CHANGE(input=l6, new_fps=PROJECT.fps);
+cc8 = CONCAT(input1=f1, input2=f3, input3=f5, input4=f7);
+t9 = TRIM(input=cc8, start=126, end=136);
+sat10 = SATURATION_CHANGE(input=t9, factor=1.90);
+cl11 = COLOR_CHANGE(input=sat10, strength=-0.33);
+cl12 = COLOR_CHANGE(input=cl11, strength=-0.96);
+cl13 = COLOR_CHANGE(input=cl12, strength=1.00);
+
+OUTPUT(file="11351025898527878286.mp4", input=cl13);
