@@ -35,15 +35,25 @@ __device__ float sample(const unsigned char* plane, int w, int h, float x, float
     return top * (1.0f - fy) + bottom * fy;
 }
 
+// Alpha of the source at (x, y) for a frame with no alpha plane: opaque inside, transparent outside.
+__device__ float opaque_inside(int w, int h, float x, float y)
+{
+    if (x < 0.0f || y < 0.0f || x > (float)(w - 1) || y > (float)(h - 1)) return 0.0f;
+    return 255.0f;
+}
+
 extern "C" __global__ void transform_macropixel(
     const unsigned char* __restrict__ in_y,
     const unsigned char* __restrict__ in_u,
     const unsigned char* __restrict__ in_v,
+    const unsigned char* __restrict__ in_a,   // only read when has_alpha is 1
     unsigned char* __restrict__ out_y,
     unsigned char* __restrict__ out_u,
     unsigned char* __restrict__ out_v,
-    int width,            // luma width; U and V planes are width / 2 wide
-    int height,           // same for all three planes
+    unsigned char* __restrict__ out_a,
+    int width,            // luma width; U and V planes are width / 2 wide, alpha is width
+    int height,           // same for all planes
+    int has_alpha,
     float trans_x,        // translation, in luma pixels
     float trans_y,
     float rot_x,          // rotation is around (rot_x, rot_y), in luma pixels
@@ -93,8 +103,15 @@ extern "C" __global__ void transform_macropixel(
     float u = sample(in_u, chroma_w, height, chroma_src_x, original_cy, 128.0f);
     float v = sample(in_v, chroma_w, height, chroma_src_x, original_cy, 128.0f);
 
+    float a1 = has_alpha ? sample(in_a, width, height, original_x1, original_y1, 0.0f)
+                         : opaque_inside(width, height, original_x1, original_y1);
+    float a2 = has_alpha ? sample(in_a, width, height, original_x2, original_y2, 0.0f)
+                         : opaque_inside(width, height, original_x2, original_y2);
+
     out_y[luma_y * width + luma_x1] = (unsigned char)(y1 + 0.5f);
     out_y[luma_y * width + luma_x2] = (unsigned char)(y2 + 0.5f);
+    out_a[luma_y * width + luma_x1] = (unsigned char)(a1 + 0.5f);
+    out_a[luma_y * width + luma_x2] = (unsigned char)(a2 + 0.5f);
     out_u[chroma_y * chroma_w + chroma_x] = (unsigned char)(u + 0.5f);
     out_v[chroma_y * chroma_w + chroma_x] = (unsigned char)(v + 0.5f);
 }

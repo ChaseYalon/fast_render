@@ -1,11 +1,12 @@
 use crate::{
-    color_change::ColorChange, concat::Concat, load::Load, output::Output, transform::Transform,
-    trim::Trim,
+    blur::Blur, color_change::ColorChange, concat::Concat, crop::Crop, load::Load, output::Output, pancake::Pancake, saturation_change::SaturationChange, transform::Transform, trim::Trim,
 };
 use ffmpeg_next::Rational;
 pub type HashOutput = u64;
 /// Planar YUV 4:2:2, tightly packed (no stride padding).
 /// `y` is `width * height`; `u` and `v` are each `(width / 2) * height`.
+/// `a` is an optional straight (not premultiplied) alpha plane of `width * height`:
+/// 0 is transparent, 255 is opaque, and `None` means the whole frame is opaque.
 #[derive(Clone)]
 pub struct Frame {
     pub width: u32,
@@ -13,6 +14,7 @@ pub struct Frame {
     pub y: Vec<u8>,
     pub u: Vec<u8>,
     pub v: Vec<u8>,
+    pub a: Option<Vec<u8>>,
 }
 pub trait BlankNode {
     fn next_frame(&mut self) -> Option<Frame>;
@@ -29,6 +31,10 @@ pub enum Node {
     ColorChange(ColorChange),
     Trim(Trim),
     Transform(Transform),
+    Crop(Crop),
+    Pancake(Pancake),
+    Blur(Blur),
+    SaturationChange(SaturationChange),
 }
 
 impl BlankNode for Node {
@@ -40,6 +46,10 @@ impl BlankNode for Node {
             Self::ColorChange(d) => d.next_frame(),
             Self::Trim(t) => t.next_frame(),
             Self::Transform(t) => t.next_frame(),
+            Self::Crop(c) => c.next_frame(),
+            Self::Pancake(p) => p.next_frame(),
+            Self::Blur(b) => b.next_frame(),
+            Self::SaturationChange(s) => s.next_frame(),
         };
     }
     fn reset(&mut self) {
@@ -50,6 +60,10 @@ impl BlankNode for Node {
             Self::ColorChange(d) => d.reset(),
             Self::Trim(t) => t.reset(),
             Self::Transform(t) => t.reset(),
+            Self::Crop(c) => c.reset(),
+            Self::Pancake(p) => p.reset(),
+            Self::Blur(b) => b.reset(),
+            Self::SaturationChange(s) => s.reset(),
         };
     }
     fn node_hash(&mut self) {
@@ -60,7 +74,10 @@ impl BlankNode for Node {
             Self::ColorChange(d) => d.node_hash(),
             Self::Trim(t) => t.node_hash(),
             Self::Transform(t) => t.node_hash(),
-            _ => todo!(),
+            Self::Crop(c) => c.node_hash(),
+            Self::Pancake(p) => p.node_hash(),
+            Self::Blur(b) => b.node_hash(),
+            Self::SaturationChange(s) => s.node_hash(),
         };
     }
     fn get_hash(&self) -> HashOutput {
@@ -71,7 +88,10 @@ impl BlankNode for Node {
             Self::ColorChange(d) => d.get_hash(),
             Self::Trim(t) => t.get_hash(),
             Self::Transform(t) => t.get_hash(),
-            _ => todo!(),
+            Self::Crop(c) => c.get_hash(),
+            Self::Pancake(p) => p.get_hash(),
+            Self::Blur(b) => b.get_hash(),
+            Self::SaturationChange(s) => s.get_hash(),
         };
     }
     fn fps(&mut self) -> Rational {
@@ -82,6 +102,10 @@ impl BlankNode for Node {
             Self::ColorChange(d) => d.fps(),
             Self::Trim(t) => t.fps(),
             Self::Transform(t) => t.fps(),
+            Self::Crop(c) => c.fps(),
+            Self::Pancake(p) => p.fps(),
+            Self::Blur(b) => b.fps(),
+            Self::SaturationChange(s) => s.fps(),
         };
     }
 }

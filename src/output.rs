@@ -1,4 +1,6 @@
 use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::project::ProjectConfig;
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use ffmpeg::{
     Dictionary, Packet, Rational, codec, encoder, format,
@@ -12,15 +14,60 @@ pub struct Output {
     output_file_name: String,
     input_node: Box<Node>,
     hash: HashOutput,
+    config: ProjectConfig,
 }
+
+/// Blends `value` over `background` by `alpha` (0 = all background, 255 = all value).
+fn blend(value: u8, background: u8, alpha: u8) -> u8 {
+    let (v, b, a) = (value as u32, background as u32, alpha as u32);
+    return ((b * (255 - a) + v * a + 127) / 255) as u8;
+}
+
+/// Composites a frame with alpha onto black, so the encoder gets a fully opaque frame.
+fn flatten(mut f: Frame) -> Frame {
+    let Some(alpha) = f.a.take() else {
+        return f;
+    };
+    // nothing is transparent, so there's nothing to blend
+    if alpha.iter().all(|&a| a == 255) {
+        return f;
+    }
+    // most pixels are fully opaque or fully transparent, so skip the blend math for those
+    let apply = |value: &mut u8, background: u8, a: u8| match a {
+        255 => {}
+        0 => *value = background,
+        _ => *value = blend(*value, background, a),
+    };
+    for (y, &a) in f.y.iter_mut().zip(&alpha) {
+        apply(y, 16, a);
+    }
+    // each U/V sample covers two luma pixels, so use the average of their alphas
+    let w = f.width as usize;
+    let chroma_w = w / 2;
+    for ((alpha_row, u_row), v_row) in alpha
+        .chunks_exact(w)
+        .zip(f.u.chunks_exact_mut(chroma_w))
+        .zip(f.v.chunks_exact_mut(chroma_w))
+    {
+        for ((pair, u), v) in alpha_row.chunks_exact(2).zip(u_row).zip(v_row) {
+            let a = ((pair[0] as u32 + pair[1] as u32 + 1) / 2) as u8;
+            apply(u, 128, a);
+            apply(v, 128, a);
+        }
+    }
+    return f;
+}
+
 impl Output {
     pub fn run(&mut self) {
         ffmpeg::init().unwrap();
-        let fps = self.input_node.fps();
+        let fps = self.config.fps;
+        let input_fps = self.input_node.fps();
+        assert_eq!(input_fps, fps, "the input's fps doesn't match the project's fps");
 
+        let (w, h) = (self.config.width, self.config.height);
+        assert!(w % 2 == 0 && h % 2 == 0, "the project size must be even");
         let first = self.input_node.next_frame().expect("no frames");
-        let (w, h) = (first.width, first.height);
-        assert!(w % 2 == 0, "yuv422p needs even width");
 
         let mut octx = format::output(&self.output_file_name).unwrap();
         let global_header = octx.format().flags().contains(format::Flags::GLOBAL_HEADER);
@@ -65,6 +112,16 @@ impl Output {
         let mut next = Some(first);
         let mut i = 0;
         while let Some(frame) = next {
+            assert!(
+                frame.width == w && frame.height == h,
+                "frame {} is {}x{} but the project is {}x{}",
+                i,
+                frame.width,
+                frame.height,
+                w,
+                h
+            );
+            let frame = flatten(frame);
             // Copy each plane into an ffmpeg frame, respecting row stride padding
             let mut yuv = Video::new(Pixel::YUV422P, w, h);
             for (plane, src, row_len) in [
@@ -108,11 +165,12 @@ impl Output {
             packet.write_interleaved(octx).unwrap();
         }
     }
-    pub fn new(output_file_name: &str, input_node: Node) -> Output {
+    pub fn new(output_file_name: &str, input_node: Node, config: ProjectConfig) -> Output {
         return Output {
             output_file_name: output_file_name.to_string(),
             input_node: Box::new(input_node),
             hash: 0,
+            config,
         };
     }
 }
@@ -131,6 +189,9 @@ impl BlankNode for Output {
     }
     fn node_hash(&mut self) {
         self.input_node.node_hash();
-        self.hash = (*self.input_node).get_hash();
+        let mut h = DefaultHasher::new();
+        self.input_node.get_hash().hash(&mut h);
+        self.config.hash(&mut h);
+        self.hash = h.finish();
     }
 }

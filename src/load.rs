@@ -109,6 +109,7 @@ impl BlankNode for Load {
                     y: copy_plane(0, s.w as usize),
                     u: copy_plane(1, cw),
                     v: copy_plane(2, cw),
+                    a: None,
                 });
             }
             if s.eof {

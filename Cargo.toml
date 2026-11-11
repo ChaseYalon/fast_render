@@ -6,3 +6,6 @@ edition = "2024"
 [dependencies]
 cudarc = { version = "0.19.10", features = ["driver", "nvrtc", "cuda-12060"] }
 ffmpeg-next = "*" 
+itertools = "0.15.0"
+[profile.dev]
+opt-level = 3

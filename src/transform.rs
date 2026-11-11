@@ -76,9 +76,15 @@ impl BlankNode for Transform {
             let in_u = self.cuda_stream.clone_htod(&f.u).unwrap();
             let in_v = self.cuda_stream.clone_htod(&f.v).unwrap();
 
+            // with no alpha plane the kernel never reads in_a, so in_y stands in for it
+            let in_a_buf = f.a.as_ref().map(|a| self.cuda_stream.clone_htod(a).unwrap());
+            let in_a = in_a_buf.as_ref().unwrap_or(&in_y);
+            let has_alpha = f.a.is_some() as i32;
+
             let mut out_y = self.cuda_stream.alloc_zeros::<u8>(f.y.len()).unwrap();
             let mut out_u = self.cuda_stream.alloc_zeros::<u8>(f.u.len()).unwrap();
             let mut out_v = self.cuda_stream.alloc_zeros::<u8>(f.v.len()).unwrap();
+            let mut out_a = self.cuda_stream.alloc_zeros::<u8>(f.y.len()).unwrap();
 
             let width = f.width as i32;
             let height = f.height as i32;
@@ -89,11 +95,14 @@ impl BlankNode for Transform {
                 .arg(&in_y)
                 .arg(&in_u)
                 .arg(&in_v)
+                .arg(in_a)
                 .arg(&mut out_y)
                 .arg(&mut out_u)
                 .arg(&mut out_v)
+                .arg(&mut out_a)
                 .arg(&width)
                 .arg(&height)
+                .arg(&has_alpha)
                 .arg(&c.trans_x)
                 .arg(&c.trans_y)
                 .arg(&c.rot_x)
@@ -114,12 +123,14 @@ impl BlankNode for Transform {
             let y = self.cuda_stream.clone_dtoh(&out_y).unwrap();
             let u = self.cuda_stream.clone_dtoh(&out_u).unwrap();
             let v = self.cuda_stream.clone_dtoh(&out_v).unwrap();
+            let a = self.cuda_stream.clone_dtoh(&out_a).unwrap();
             return Some(Frame {
                 width: f.width,
                 height: f.height,
                 y,
                 u,
                 v,
+                a: Some(a),
             });
         } else {
             return None;

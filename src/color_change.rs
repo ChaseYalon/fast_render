@@ -83,6 +83,7 @@ impl BlankNode for ColorChange {
                 y,
                 u,
                 v,
+                a: f.a,
             });
         } else {
             return None;
