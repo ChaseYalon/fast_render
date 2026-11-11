@@ -2,11 +2,11 @@ mod nodes;
 mod project;
 mod interpreter;
 mod fuzzer;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{env, fs};
 use cudarc::driver::{CudaContext, CudaFunction};
 use cudarc::nvrtc;
 use std::sync::Arc;
-
 use crate::fuzzer::Fuzzer;
 use crate::interpreter::GraphBuilder;
 use crate::nodes::Node;
@@ -48,6 +48,33 @@ impl Kernels {
     }
 }
 
+/// Prints count, mean and median of `times_ns`. All the maths is done in
+/// nanoseconds; values are only converted to seconds when printed.
+fn print_stats(label: &str, times_ns: &[u128]) {
+    let count = times_ns.len();
+    if count == 0 {
+        println!("{label}: no runs");
+        return;
+    }
+
+    let mut sorted = times_ns.to_vec();
+    sorted.sort_unstable();
+
+    let sum: u128 = sorted.iter().sum();
+    let mean_ns = sum as f64 / count as f64;
+    let median_ns = if count % 2 == 1 {
+        sorted[count / 2] as f64
+    } else {
+        (sorted[count / 2 - 1] + sorted[count / 2]) as f64 / 2.0
+    };
+
+    let to_secs = |ns: f64| ns / 1_000_000_000.0;
+    println!("{label}");
+    println!("  count  : {count}");
+    println!("  mean   : {:.4} s", to_secs(mean_ns));
+    println!("  median : {:.4} s", to_secs(median_ns));
+}
+
 fn main() {
     let cuda_ctx = CudaContext::new(0).unwrap();
     let kernels = Kernels::new(&cuda_ctx);
@@ -59,6 +86,48 @@ fn main() {
             let mut f = Fuzzer::new();
             f.fuzz(true);
         }
+        return;
+    }
+    if args[1] == "--time" {
+        let mut cold_times: Vec<u128> = vec![];
+        let mut hot_times: Vec<u128> = vec![];
+        for f in fs::read_dir("./vids/").unwrap() {
+            if let Ok(file) = f {
+                println!("{:?}", file.path());
+                let text = fs::read_to_string(file.path().clone()).unwrap();
+                let builder = GraphBuilder::new();
+                let (root, _) = builder.build(text, cuda_ctx.clone(), kernels.clone());
+                if let Node::Output(mut o) = root {
+                    let start = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time is before the Unix epoch")
+                        .as_nanos();
+                    o.run();
+                    let end = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time is before the Unix epoch")
+                        .as_nanos();
+                    cold_times.push(end - start);
+
+                    let start = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time is before the Unix epoch")
+                        .as_nanos();
+                    o.run();
+                    let end = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .expect("System time is before the Unix epoch")
+                        .as_nanos();
+                    hot_times.push(end - start)
+                } else {
+                    unreachable!()
+                }
+            } else {
+                panic!();
+            }
+        }
+        print_stats("Cold runs", &cold_times);
+        print_stats("Hot runs", &hot_times);
         return;
     }
 
