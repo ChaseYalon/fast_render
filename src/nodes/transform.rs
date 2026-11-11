@@ -2,7 +2,7 @@ use std::{hash::DefaultHasher, sync::Arc};
 
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use std::hash::{Hash, Hasher};
 pub struct TransformConfig {
     pub trans_x: f32,
@@ -27,11 +27,11 @@ impl Hash for TransformConfig {
     }
 }
 pub struct Transform {
-    input: Box<Node>,
+    pub(crate) input: Box<Node>,
     cuda_fn: CudaFunction,
     cuda_stream: Arc<CudaStream>,
     hash: HashOutput,
-    config: TransformConfig,
+    pub(crate) config: TransformConfig,
 }
 
 impl Transform {

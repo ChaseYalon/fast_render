@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use ffmpeg_next::Rational;
 
 /// Settings shared by the whole video: the canvas every frame must match and the frame rate.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct ProjectConfig {
     pub width: u32,
     pub height: u32,

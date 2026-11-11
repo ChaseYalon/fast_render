@@ -1,4 +1,4 @@
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use crate::project::ProjectConfig;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
@@ -11,10 +11,10 @@ use ffmpeg::{
 use ffmpeg_next as ffmpeg;
 
 pub struct Output {
-    output_file_name: String,
-    input_node: Box<Node>,
+    pub(crate) output_file_name: String,
+    pub(crate) input_node: Box<Node>,
     hash: HashOutput,
-    config: ProjectConfig,
+    pub(crate) config: ProjectConfig,
 }
 
 /// Blends `value` over `background` by `alpha` (0 = all background, 255 = all value).

@@ -1,10 +1,10 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use ffmpeg_next::Rational;
 
 pub struct Concat {
-    input_nodes: Vec<Node>,
+    pub(crate) input_nodes: Vec<Node>,
     hash: HashOutput,
     current: usize,
 }

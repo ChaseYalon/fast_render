@@ -5,12 +5,12 @@ use std::{
 
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 
 /// Layers `top` over `bottom` using their alpha planes.
 pub struct Pancake {
-    bottom: Box<Node>,
-    top: Box<Node>,
+    pub(crate) bottom: Box<Node>,
+    pub(crate) top: Box<Node>,
     hash: HashOutput,
     cuda_fn: CudaFunction,
     stream: Arc<CudaStream>,

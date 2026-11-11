@@ -5,19 +5,19 @@ use std::{
     rc::Rc,
 };
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use ffmpeg_next::Rational;
 
 #[derive(Clone, Copy, Hash)]
-enum Side {
+pub(crate) enum Side {
     First,
     Second,
 }
 
 /// State shared by both halves of a split. It owns the input, so each frame is decoded once.
-struct SplitCore {
-    input: Box<Node>,
-    at_seconds: f64,
+pub(crate) struct SplitCore {
+    pub(crate) input: Box<Node>,
+    pub(crate) at_seconds: f64,
     // computed on the first pull, because fps needs the input to be opened
     cut_frame: Option<usize>,
     // index of the next frame the input will produce
@@ -66,8 +66,8 @@ impl SplitCore {
 
 /// One half of a split. Create both with `Split::new`.
 pub struct Split {
-    core: Rc<RefCell<SplitCore>>,
-    side: Side,
+    pub(crate) core: Rc<RefCell<SplitCore>>,
+    pub(crate) side: Side,
     hash: HashOutput,
 }
 

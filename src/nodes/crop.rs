@@ -1,15 +1,15 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 
 /// Makes everything outside a window transparent. The frame keeps its size.
 pub struct Crop {
     // top left corner (inclusive) and bottom right corner (exclusive)
-    left_x: usize,
-    left_y: usize,
-    right_x: usize,
-    right_y: usize,
-    input: Box<Node>,
+    pub(crate) left_x: usize,
+    pub(crate) left_y: usize,
+    pub(crate) right_x: usize,
+    pub(crate) right_y: usize,
+    pub(crate) input: Box<Node>,
     hash: HashOutput,
 }
 

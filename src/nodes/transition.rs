@@ -7,7 +7,7 @@ use std::{
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 use ffmpeg_next::Rational;
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 
 #[derive(Clone, Copy, Hash)]
 pub enum WipeDirection {
@@ -25,10 +25,10 @@ pub enum TransitionKind {
 /// Plays `a`, then `b`, blending the last `seconds` of `a` into the first `seconds` of `b`.
 /// The result is `seconds` shorter than the two clips back to back.
 pub struct Transition {
-    a: Box<Node>,
-    b: Box<Node>,
-    kind: TransitionKind,
-    seconds: usize,
+    pub(crate) a: Box<Node>,
+    pub(crate) b: Box<Node>,
+    pub(crate) kind: TransitionKind,
+    pub(crate) seconds: usize,
     cuda_fn: CudaFunction,
     stream: Arc<CudaStream>,
     hash: HashOutput,

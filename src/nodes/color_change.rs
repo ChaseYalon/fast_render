@@ -3,18 +3,18 @@ use std::{
     sync::Arc,
 };
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use cudarc::driver::PushKernelArg;
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig};
 use ffmpeg_next::Rational;
 
 pub struct ColorChange {
-    input: Box<Node>,
+    pub(crate) input: Box<Node>,
     cuda_fn: CudaFunction,
     cuda_stream: Arc<CudaStream>,
     hash: HashOutput,
     frame_number: usize,
-    strength: f32,
+    pub(crate) strength: f32,
 }
 
 impl ColorChange {

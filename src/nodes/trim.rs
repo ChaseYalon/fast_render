@@ -1,11 +1,11 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 
 pub struct Trim {
-    input: Box<Node>,
-    start_time: usize, //seconds
-    end_time: usize,   //seconds
+    pub(crate) input: Box<Node>,
+    pub(crate) start_time: usize, //seconds
+    pub(crate) end_time: usize,   //seconds
     hash: HashOutput,
     frame_at: usize,
 }

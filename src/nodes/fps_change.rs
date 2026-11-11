@@ -1,12 +1,12 @@
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use ffmpeg_next::Rational;
 
 /// Changes the frame rate by repeating or dropping frames. The clip keeps its duration.
 pub struct FpsChange {
-    input: Box<Node>,
-    target: Rational,
+    pub(crate) input: Box<Node>,
+    pub(crate) target: Rational,
     hash: HashOutput,
     // index of the next frame to produce
     out_index: u64,

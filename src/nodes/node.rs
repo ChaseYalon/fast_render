@@ -1,4 +1,4 @@
-use crate::{
+use crate::nodes::{
     blur::Blur, color_change::ColorChange, concat::Concat, crop::Crop, fps_change::FpsChange, load::Load, output::Output, pancake::Pancake, saturation_change::SaturationChange, split::Split, transform::Transform, transition::Transition, trim::Trim,
 };
 use ffmpeg_next::Rational;
@@ -21,7 +21,6 @@ pub trait BlankNode {
     fn reset(&mut self);
     fn node_hash(&mut self);
     fn get_hash(&self) -> HashOutput;
-    /// Frame rate of the frames this node produces, as an exact fraction (e.g. 30000/1001).
     fn fps(&mut self) -> Rational;
 }
 pub enum Node {

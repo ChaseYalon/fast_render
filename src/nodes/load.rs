@@ -1,4 +1,4 @@
-use crate::node::{BlankNode, Frame, HashOutput};
+use crate::nodes::{BlankNode, Frame, HashOutput};
 use ffmpeg::{
     Packet, Rational,
     format::{Pixel, input},

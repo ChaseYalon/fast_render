@@ -3,18 +3,18 @@ use std::{
     sync::Arc,
 };
 
-use crate::node::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, HashOutput, Node};
 use cudarc::driver::PushKernelArg;
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig};
 use ffmpeg_next::Rational;
 
 /// Scales the color of a clip: 0.0 is grayscale, 1.0 is unchanged, 2.0 doubles the color.
 pub struct SaturationChange {
-    input: Box<Node>,
+    pub(crate) input: Box<Node>,
     cuda_fn: CudaFunction,
     cuda_stream: Arc<CudaStream>,
     hash: HashOutput,
-    factor: f32,
+    pub(crate) factor: f32,
 }
 
 impl SaturationChange {
