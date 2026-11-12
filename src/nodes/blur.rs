@@ -5,7 +5,7 @@ use std::{
 
 use cudarc::driver::{CudaFunction, CudaSlice, CudaStream, LaunchConfig, PushKernelArg};
 
-use crate::nodes::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, GpuFrame, HashOutput, Node, PinnedPool, Plane};
 
 /// Gaussian blur of the whole frame.
 pub struct Blur {
@@ -18,6 +18,11 @@ pub struct Blur {
     luma_radius: i32,
     chroma_weights: CudaSlice<f32>,
     chroma_radius: i32,
+    // the pipeline: `ready` is handed out next, `on_gpu` is the frame after it
+    ready: Option<Frame>,
+    on_gpu: Option<GpuFrame>,
+    primed: bool,
+    pool: PinnedPool,
 }
 
 /// Normalized gaussian weights for offsets -radius..=radius.
@@ -44,6 +49,7 @@ impl Blur {
         return Blur {
             input: Box::new(input),
             cuda_fn,
+            pool: PinnedPool::new(stream.clone()),
             stream,
             hash: 0,
             sigma,
@@ -51,21 +57,24 @@ impl Blur {
             luma_radius,
             chroma_weights,
             chroma_radius,
+            ready: None,
+            on_gpu: None,
+            primed: false,
         };
     }
 
-    fn run_plane(
-        &self,
-        plane: &[u8],
-        w: i32,
-        h: i32,
-        h_weights: &CudaSlice<f32>,
-        h_radius: i32,
-        v_weights: &CudaSlice<f32>,
-        v_radius: i32,
-    ) -> Vec<u8> {
+    /// Queues the upload of one plane, both blur passes on it, and the download of the
+    /// result. Returns without waiting for any of it.
+    /// `chroma` planes are half as wide, so their horizontal pass uses the chroma weights.
+    fn run_plane(&mut self, plane: &[u8], w: i32, h: i32, chroma: bool) -> Plane {
         let s = &self.stream;
-        let input = s.clone_htod(plane).unwrap();
+        let (h_weights, h_radius) = if chroma {
+            (&self.chroma_weights, self.chroma_radius)
+        } else {
+            (&self.luma_weights, self.luma_radius)
+        };
+        let (v_weights, v_radius) = (&self.luma_weights, self.luma_radius);
+        let input = self.pool.upload(plane);
         let mut temp = s.alloc_zeros::<u8>(plane.len()).unwrap();
         let mut out = s.alloc_zeros::<u8>(plane.len()).unwrap();
         let cfg = LaunchConfig::for_num_elems(plane.len() as u32);
@@ -94,13 +103,33 @@ impl Blur {
             .arg(&vertical);
         unsafe { builder.launch(cfg) }.unwrap();
 
-        return s.clone_dtoh(&out).unwrap();
+        let result = self.pool.download(&out);
+        self.pool.keep(input);
+        self.pool.keep(temp);
+        self.pool.keep(out);
+        return result;
+    }
+
+    /// Pulls the next input frame and sends it to the GPU. `None` when the input has ended.
+    fn launch(&mut self) -> Option<GpuFrame> {
+        let f = self.input.next_frame()?;
+        let w = f.width as i32;
+        let h = f.height as i32;
+
+        let y = self.run_plane(&f.y, w, h, false);
+        let u = self.run_plane(&f.u, w / 2, h, true);
+        let v = self.run_plane(&f.v, w / 2, h, true);
+        let a = f.a.as_ref().map(|a| self.run_plane(a, w, h, false));
+        return Some(self.pool.seal(f.width, f.height, y, u, v, a));
     }
 }
 
 impl BlankNode for Blur {
     fn reset(&mut self) {
         self.input.reset();
+        self.ready = None;
+        self.on_gpu = None;
+        self.primed = false;
     }
     fn fps(&mut self) -> ffmpeg_next::Rational {
         return self.input.fps();
@@ -117,27 +146,15 @@ impl BlankNode for Blur {
         self.hash = h.finish();
     }
     fn next_frame(&mut self) -> Option<Frame> {
-        let f = self.input.next_frame()?;
-        let w = f.width as i32;
-        let h = f.height as i32;
-        let (lw, lr) = (&self.luma_weights, self.luma_radius);
-        let (cw, cr) = (&self.chroma_weights, self.chroma_radius);
-
-        let y = self.run_plane(&f.y, w, h, lw, lr, lw, lr);
-        let u = self.run_plane(&f.u, w / 2, h, cw, cr, lw, lr);
-        let v = self.run_plane(&f.v, w / 2, h, cw, cr, lw, lr);
-        let a = f
-            .a
-            .as_ref()
-            .map(|a| self.run_plane(a, w, h, lw, lr, lw, lr));
-
-        return Some(Frame {
-            width: f.width,
-            height: f.height,
-            y,
-            u,
-            v,
-            a,
-        });
+        if !self.primed {
+            // the first call has nothing waiting, so it pays for a full frame
+            self.ready = self.launch().map(|g| self.pool.finish(g));
+            self.on_gpu = self.launch();
+            self.primed = true;
+        }
+        let out = self.ready.take()?; // 1. hand out the frame that is already here
+        self.ready = self.on_gpu.take().map(|g| self.pool.finish(g)); // 2. collect the next one
+        self.on_gpu = self.launch(); // 3. send the one after that to the GPU
+        return Some(out);
     }
 }

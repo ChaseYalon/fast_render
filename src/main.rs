@@ -112,6 +112,7 @@ fn main() {
                         .duration_since(UNIX_EPOCH)
                         .expect("System time is before the Unix epoch")
                         .as_nanos();
+                    println!("[LOG] Cold Time: {}", end - start / 1e9 as u128);
                     cold_times.push(end - start);
                     o.reset(); // the first run consumed every frame; rewind the graph
 
@@ -124,6 +125,7 @@ fn main() {
                         .duration_since(UNIX_EPOCH)
                         .expect("System time is before the Unix epoch")
                         .as_nanos();
+                    println!("[LOG] Hot Time: {}", start - end / 1e9 as u128);
                     hot_times.push(end - start)
                 } else {
                     unreachable!()

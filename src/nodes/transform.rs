@@ -2,7 +2,7 @@ use std::{hash::DefaultHasher, sync::Arc};
 
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use crate::nodes::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, GpuFrame, HashOutput, Node, PinnedPool};
 use std::hash::{Hash, Hasher};
 pub struct TransformConfig {
     pub trans_x: f32,
@@ -32,6 +32,11 @@ pub struct Transform {
     cuda_stream: Arc<CudaStream>,
     hash: HashOutput,
     pub(crate) config: TransformConfig,
+    // the pipeline: `ready` is handed out next, `on_gpu` is the frame after it
+    ready: Option<Frame>,
+    on_gpu: Option<GpuFrame>,
+    primed: bool,
+    pool: PinnedPool,
 }
 
 impl Transform {
@@ -45,9 +50,13 @@ impl Transform {
         return Transform {
             input: Box::new(input),
             cuda_fn,
+            pool: PinnedPool::new(cuda_stream.clone()),
             cuda_stream,
             hash: 0,
             config,
+            ready: None,
+            on_gpu: None,
+            primed: false,
         };
     }
 }
@@ -55,6 +64,9 @@ impl Transform {
 impl BlankNode for Transform {
     fn reset(&mut self) {
         self.input.reset();
+        self.ready = None;
+        self.on_gpu = None;
+        self.primed = false;
     }
     fn get_hash(&self) -> HashOutput {
         return self.hash;
@@ -71,13 +83,31 @@ impl BlankNode for Transform {
         return self.input.fps();
     }
     fn next_frame(&mut self) -> Option<Frame> {
-        if let Some(f) = self.input.next_frame() {
-            let in_y = self.cuda_stream.clone_htod(&f.y).unwrap();
-            let in_u = self.cuda_stream.clone_htod(&f.u).unwrap();
-            let in_v = self.cuda_stream.clone_htod(&f.v).unwrap();
+        if !self.primed {
+            // the first call has nothing waiting, so it pays for a full frame
+            self.ready = self.launch().map(|g| self.pool.finish(g));
+            self.on_gpu = self.launch();
+            self.primed = true;
+        }
+        let out = self.ready.take()?; // 1. hand out the frame that is already here
+        self.ready = self.on_gpu.take().map(|g| self.pool.finish(g)); // 2. collect the next one
+        self.on_gpu = self.launch(); // 3. send the one after that to the GPU
+        return Some(out);
+    }
+}
+
+impl Transform {
+    /// Pulls the next input frame and queues its upload, the kernel and the download.
+    /// `None` when the input has ended.
+    fn launch(&mut self) -> Option<GpuFrame> {
+        {
+            let f = self.input.next_frame()?;
+            let in_y = self.pool.upload(&f.y);
+            let in_u = self.pool.upload(&f.u);
+            let in_v = self.pool.upload(&f.v);
 
             // with no alpha plane the kernel never reads in_a, so in_y stands in for it
-            let in_a_buf = f.a.as_ref().map(|a| self.cuda_stream.clone_htod(a).unwrap());
+            let in_a_buf = f.a.as_ref().map(|a| self.pool.upload(a));
             let in_a = in_a_buf.as_ref().unwrap_or(&in_y);
             let has_alpha = f.a.is_some() as i32;
 
@@ -120,20 +150,17 @@ impl BlankNode for Transform {
             };
             unsafe { builder.launch(cfg) }.unwrap();
 
-            let y = self.cuda_stream.clone_dtoh(&out_y).unwrap();
-            let u = self.cuda_stream.clone_dtoh(&out_u).unwrap();
-            let v = self.cuda_stream.clone_dtoh(&out_v).unwrap();
-            let a = self.cuda_stream.clone_dtoh(&out_a).unwrap();
-            return Some(Frame {
-                width: f.width,
-                height: f.height,
-                y,
-                u,
-                v,
-                a: Some(a),
-            });
-        } else {
-            return None;
+            let y = self.pool.download(&out_y);
+            let u = self.pool.download(&out_u);
+            let v = self.pool.download(&out_v);
+            let a = self.pool.download(&out_a);
+            for buf in [in_y, in_u, in_v, out_y, out_u, out_v, out_a] {
+                self.pool.keep(buf);
+            }
+            if let Some(buf) = in_a_buf {
+                self.pool.keep(buf);
+            }
+            return Some(self.pool.seal(f.width, f.height, y, u, v, Some(a)));
         }
     }
 }

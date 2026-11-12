@@ -5,7 +5,7 @@ use std::{
 
 use cudarc::driver::{CudaFunction, CudaStream, LaunchConfig, PushKernelArg};
 
-use crate::nodes::{BlankNode, Frame, HashOutput, Node};
+use crate::nodes::{BlankNode, Frame, GpuFrame, HashOutput, Node, PinnedPool};
 
 /// Layers `top` over `bottom` using their alpha planes.
 pub struct Pancake {
@@ -14,6 +14,11 @@ pub struct Pancake {
     hash: HashOutput,
     cuda_fn: CudaFunction,
     stream: Arc<CudaStream>,
+    // the pipeline: `ready` is handed out next, `on_gpu` is the frame after it
+    ready: Option<Frame>,
+    on_gpu: Option<GpuFrame>,
+    primed: bool,
+    pool: PinnedPool,
 }
 
 impl Pancake {
@@ -28,7 +33,11 @@ impl Pancake {
             top: Box::new(top),
             hash: 0,
             cuda_fn,
+            pool: PinnedPool::new(stream.clone()),
             stream,
+            ready: None,
+            on_gpu: None,
+            primed: false,
         };
     }
 }
@@ -36,6 +45,9 @@ impl BlankNode for Pancake {
     fn reset(&mut self) {
         self.top.reset();
         self.bottom.reset();
+        self.ready = None;
+        self.on_gpu = None;
+        self.primed = false;
     }
     fn fps(&mut self) -> ffmpeg_next::Rational {
         let fps = self.bottom.fps();
@@ -55,10 +67,27 @@ impl BlankNode for Pancake {
         self.hash = h.finish();
     }
     fn next_frame(&mut self) -> Option<Frame> {
+        if !self.primed {
+            // the first call has nothing waiting, so it pays for a full frame
+            self.ready = self.launch().map(|g| self.pool.finish(g));
+            self.on_gpu = self.launch();
+            self.primed = true;
+        }
+        let out = self.ready.take()?; // 1. hand out the frame that is already here
+        self.ready = self.on_gpu.take().map(|g| self.pool.finish(g)); // 2. collect the next one
+        self.on_gpu = self.launch(); // 3. send the one after that to the GPU
+        return Some(out);
+    }
+}
+
+impl Pancake {
+    /// Pulls the next frame from both inputs and queues the upload, the kernel and the
+    /// download. `None` when both inputs have ended.
+    fn launch(&mut self) -> Option<GpuFrame> {
         // when one input runs out, the other plays on by itself
         let (bot, top) = match (self.bottom.next_frame(), self.top.next_frame()) {
             (Some(b), Some(t)) => (b, t),
-            (Some(only), None) | (None, Some(only)) => return Some(only),
+            (Some(only), None) | (None, Some(only)) => return Some(GpuFrame::from_host(only)),
             (None, None) => return None,
         };
         assert!(
@@ -71,14 +100,14 @@ impl BlankNode for Pancake {
         let bot_a = bot.a.unwrap_or_else(|| vec![255; len]);
         let top_a = top.a.unwrap_or_else(|| vec![255; len]);
 
-        let y_bot = s.clone_htod(&bot.y).unwrap();
-        let u_bot = s.clone_htod(&bot.u).unwrap();
-        let v_bot = s.clone_htod(&bot.v).unwrap();
-        let a_bot = s.clone_htod(&bot_a).unwrap();
-        let y_top = s.clone_htod(&top.y).unwrap();
-        let u_top = s.clone_htod(&top.u).unwrap();
-        let v_top = s.clone_htod(&top.v).unwrap();
-        let a_top = s.clone_htod(&top_a).unwrap();
+        let y_bot = self.pool.upload(&bot.y);
+        let u_bot = self.pool.upload(&bot.u);
+        let v_bot = self.pool.upload(&bot.v);
+        let a_bot = self.pool.upload(&bot_a);
+        let y_top = self.pool.upload(&top.y);
+        let u_top = self.pool.upload(&top.u);
+        let v_top = self.pool.upload(&top.v);
+        let a_top = self.pool.upload(&top_a);
 
         let mut out_y = s.alloc_zeros::<u8>(len).unwrap();
         let mut out_u = s.alloc_zeros::<u8>(bot.u.len()).unwrap();
@@ -104,13 +133,15 @@ impl BlankNode for Pancake {
             .arg(&num_pairs);
         unsafe { builder.launch(LaunchConfig::for_num_elems(num_pairs as u32)) }.unwrap();
 
-        return Some(Frame {
-            width: bot.width,
-            height: bot.height,
-            y: s.clone_dtoh(&out_y).unwrap(),
-            u: s.clone_dtoh(&out_u).unwrap(),
-            v: s.clone_dtoh(&out_v).unwrap(),
-            a: Some(s.clone_dtoh(&out_a).unwrap()),
-        });
+        let y = self.pool.download(&out_y);
+        let u = self.pool.download(&out_u);
+        let v = self.pool.download(&out_v);
+        let a = self.pool.download(&out_a);
+        for buf in [
+            y_bot, u_bot, v_bot, a_bot, y_top, u_top, v_top, a_top, out_y, out_u, out_v, out_a,
+        ] {
+            self.pool.keep(buf);
+        }
+        return Some(self.pool.seal(bot.width, bot.height, y, u, v, Some(a)));
     }
 }

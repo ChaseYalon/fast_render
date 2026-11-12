@@ -13,4 +13,4 @@ pub mod transform;
 pub mod transition;
 pub mod trim;
 
-pub(crate) use crate::nodes::node::{BlankNode, Frame, HashOutput, Node};
+pub(crate) use crate::nodes::node::{BlankNode, Frame, GpuFrame, HashOutput, Node, PinnedPool, Plane};
